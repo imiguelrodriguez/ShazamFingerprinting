@@ -1,0 +1,7 @@
+# Audio Fingerprint
+
+```bash
+python builddb.py -i songs-folder -o database-file
+
+```bash
+python identify.py -d database-file -i sample
