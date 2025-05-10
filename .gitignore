@@ -1,2 +1,7 @@
 *.pdf
+*.db
 /music
+/constellations
+/spectrograms
+/test
+__pycache__

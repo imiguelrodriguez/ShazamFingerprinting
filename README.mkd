@@ -1,7 +1,94 @@
-# Audio Fingerprint
+# Audio Fingerprinting System Shazam-based
+
+This project implements a basic audio fingerprinting and song identification system based on the Shazam algorithm. It allows you to:
+
+- Extract fingerprints from `.wav` files and store them in a database
+- Visualize spectrograms and constellation maps
+- Identify a song by comparing a short audio sample against the fingerprint database
+
+
+## Project Structure
+
+```
+├── builddb.py                # Build the fingerprint database from audio files
+├── identify.py               # Identify a song from a sample
+├── utils.py                  # Shared utility functions for audio processing and fingerprinting
+├── spectrograms/             # Saved spectrogram images for each song
+├── constellations/
+│   ├── peaks/                # Constellation maps using local peak detection
+│   └── maxfilter/            # Constellation maps using maximum filter
+├── music/                    # Folder with original .wav audio files
+├── test
+│   ├── clean_samples/        # Folder with audio samples for identification
+│   ├── filtered_samples/
+│   ├── noisy_filtered_samples/
+│   ├── noisy_samples/               
+├── fingerprints.db           # SQLite database with fingerprints and song metadata
+```
+
+---
+
+## Requirements
+
+Install required dependencies with pip:
 
 ```bash
-python builddb.py -i songs-folder -o database-file
+pip install numpy scipy librosa matplotlib scikit-image
+```
+
+Or using Conda (recommended for scientific environments):
 
 ```bash
-python identify.py -d database-file -i sample
+conda install -c conda-forge numpy scipy librosa matplotlib scikit-image
+```
+
+---
+
+## Usage
+
+### 1. Build the Fingerprint Database
+
+```bash
+python builddb.py -i music -o fingerprints.db
+```
+
+- `-i`: Input folder containing `.wav` audio files
+- `-o`: Output SQLite database file
+
+This will:
+- Process each `.wav` file
+- Generate a spectrogram and constellation maps
+- Extract hashes and store them in `fingerprints.db`
+
+> [!NOTE]
+> Images will be saved to `spectrograms/` and `constellations/` folders.
+
+---
+
+### 2. Identify a Song from a Sample
+
+```bash
+python identify.py -d fingerprints.db -i test/clean_samples/01_Bourgade_samples/01_Bourgade_0.wav
+```
+
+- `-d`: Path to the fingerprint database
+- `-i`: Path to the audio sample (`.wav` file)
+
+If a match is found, the system will print:
+
+```
+✅ Match: 01_Bourgade.wav (score = 56)
+```
+
+If no match is found:
+
+```
+❌ No match found.
+```
+
+---
+
+> [!NOTE]
+> Works best with high-quality `.wav` files sampled at 44.1 kHz.
+> Spectrogram and peak detection parameters can be fine-tuned in `utils.py`.
+> Only `.wav` format is supported in this version.
