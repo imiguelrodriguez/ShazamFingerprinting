@@ -13,16 +13,16 @@ This project implements a basic audio fingerprinting and song identification sys
 ├── builddb.py                # Build the fingerprint database from audio files
 ├── identify.py               # Identify a song from a sample
 ├── utils.py                  # Shared utility functions for audio processing and fingerprinting
-├── spectrograms/             # Saved spectrogram images for each song
-├── constellations/
-│   ├── peaks/                # Constellation maps using local peak detection
-│   └── maxfilter/            # Constellation maps using maximum filter
-├── music/                    # Folder with original .wav audio files
-├── test
-│   ├── clean_samples/        # Folder with audio samples for identification
-│   ├── filtered_samples/
-│   ├── noisy_filtered_samples/
-│   ├── noisy_samples/               
+├── /spectrograms             # Saved spectrogram images for each song
+├── /constellations
+│   ├── /peaks                # Constellation maps using local peak detection
+│   └── /maxfilter            # Constellation maps using maximum filter
+├── /music                    # Folder with original .wav audio files
+├── /test
+│   ├── /clean_samples        # Folder with audio samples for identification
+│   ├── /filtered_samples
+│   ├── /noisy_filtered_samples
+│   ├── /noisy_samples               
 ├── fingerprints.db           # SQLite database with fingerprints and song metadata
 ```
 
