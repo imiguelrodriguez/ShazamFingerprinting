@@ -1,8 +1,7 @@
-# builddb.py
 import argparse
 import os
 import sqlite3
-from utils import read_wav, compute_spectrogram, find_constellation_peaks, get_constellationpoints, hash_generation, save_spectrogram_image, save_constellation_image, clear_output_folders
+from utils import read_wav, compute_spectrogram, find_constellation_peaks, get_constellationpoints, hash_generation, save_waveform_and_spectrogram, save_constellation_image, clear_output_folders
 
 SPEC_FOLDER = "spectrograms"
 PEAKS_FOLDER = os.path.join("constellations", "peaks")
@@ -41,7 +40,7 @@ def build_database(input_folder: str, output: str):
             freqs, times, Sxx = compute_spectrogram(data, sr)
 
             song_id_base = os.path.splitext(filename)[0]
-            save_spectrogram_image(Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
+            save_waveform_and_spectrogram(data, sr, Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
 
             peaks = find_constellation_peaks(Sxx)
             peaks_max = get_constellationpoints(freqs, times, Sxx)
