@@ -1,7 +1,7 @@
 import argparse
 import os
 import sqlite3
-from utils import read_wav, compute_spectrogram, find_constellation_peaks, get_constellationpoints, hash_generation, save_waveform_and_spectrogram, save_constellation_image, clear_output_folders
+from utils import read_wav, compute_spectrogram, find_constellation_peaks, get_constellationpoints, hash_generation, save_waveform_and_spectrogram, save_constellation_image, clear_output_folders_and_db_files, save_spectrogram_image
 
 SPEC_FOLDER = "spectrograms"
 PEAKS_FOLDER = os.path.join("constellations", "peaks")
@@ -13,34 +13,49 @@ os.makedirs(MAXFILT_FOLDER, exist_ok=True)
 
 
 def build_database(input_folder: str, output: str):
-    clear_output_folders([SPEC_FOLDER, PEAKS_FOLDER, MAXFILT_FOLDER])
+    clear_output_folders_and_db_files([SPEC_FOLDER, PEAKS_FOLDER, MAXFILT_FOLDER])
 
     conn = sqlite3.connect(output)
     cur = conn.cursor()
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS songs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS fingerprints (
-            hash TEXT,
-            offset INTEGER,
-            song_id INTEGER
-        )
-    """)
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS songs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT
+            )
+        """)
+    except sqlite3.OperationalError as e:
+        print(f"Error creating songs table: {e}")
+        conn.close()
+        return
+    
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS fingerprints (
+                hash TEXT,
+                offset INTEGER,
+                song_id INTEGER
+            )
+        """)
+    except sqlite3.OperationalError as e:
+        print(f"Error creating fingerprints table: {e}")
+        conn.close()
+        return
 
-    for filename in os.listdir(input_folder):
+    for filename in sorted(os.listdir(input_folder)):
         if filename.lower().endswith('.wav'):
             print(f"Processing {filename}")
             filepath = os.path.join(input_folder, filename)
             data, sr = read_wav(filepath)
             freqs, times, Sxx = compute_spectrogram(data, sr)
-
             song_id_base = os.path.splitext(filename)[0]
-            save_waveform_and_spectrogram(data, sr, Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
+
+            # There is a corroupted file in the dataset, so we only process the first one
+            if filename == sorted(os.listdir(input_folder))[0]:
+                save_waveform_and_spectrogram(data, sr, Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
+            else:
+                save_spectrogram_image(Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
 
             peaks = find_constellation_peaks(Sxx)
             peaks_max = get_constellationpoints(freqs, times, Sxx)
@@ -48,15 +63,25 @@ def build_database(input_folder: str, output: str):
             save_constellation_image(Sxx, peaks, f"{song_id_base}_peaks.png", PEAKS_FOLDER)
             save_constellation_image(Sxx, peaks_max, f"{song_id_base}_maxfilter.png", MAXFILT_FOLDER)
 
-            cur.execute("INSERT INTO songs (name) VALUES (?)", (filename,))
+            try:
+                cur.execute("INSERT INTO songs (name) VALUES (?)", (filename,))
+            except sqlite3.IntegrityError:
+                print(f"Song {filename} already exists in the database. Skipping.")
+                continue
+
             song_id = cur.lastrowid
 
             hashes = hash_generation(peaks)
             for hash_val, offset in hashes:
-                cur.execute(
-                    "INSERT INTO fingerprints (hash, offset, song_id) VALUES (?, ?, ?)",
-                    (hash_val, offset, song_id)
-                )
+
+                try:
+                    cur.execute(
+                        "INSERT INTO fingerprints (hash, offset, song_id) VALUES (?, ?, ?)",
+                        (hash_val, offset, song_id)
+                    )
+                except sqlite3.IntegrityError:
+                    print(f"Hash {hash_val} already exists for song {filename}. Skipping.")
+                    continue
 
             conn.commit()
 

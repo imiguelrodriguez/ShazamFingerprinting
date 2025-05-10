@@ -48,7 +48,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input', required=True, help="Path to the sample WAV file.")
     args = parser.parse_args()
 
-    print(f"🔍 Identifying {args.input}...")
+    print(f"Identifying {args.input}...")
     song, score = identify_sample(args.database, args.input)
 
     if song:
