@@ -29,22 +29,44 @@ def find_constellation_peaks(Sxx, window_size=50):
     # Convert to list of tuples (freq_idx, time_idx)
     return [tuple(idx) for idx in peak_indices]
 
-def hash_generation(peaks, fan_value=5, delta_t_max=200, delta_f_max=50):
+
+def hash_generation(peaks, offset=5, delta_t_max=200, delta_f_max=50):
     hashes = []
-    for i in range(len(peaks)):
-        t1, f1 = peaks[i][0], peaks[i][1]
-        for j in range(1, fan_value + 1):
-            if i + j < len(peaks):
-                t2, f2 = peaks[i + j][0], peaks[i + j][1]
+    num_peaks = len(peaks)
+
+    for i in range(num_peaks):
+        # Anchor point
+        t1, f1 = peaks[i]
+
+        # Define window
+        t_start = t1 + offset
+        t_end = t_start + delta_t_max
+        f_start = f1 - delta_f_max
+        f_end = f_start + delta_f_max
+
+        # Loop through remaining peaks to find points inside the rectangle
+        for peak in peaks:
+            t2, f2 = peak
+
+            # Check if the point is inside the rectangle
+            if t_start <= t2 < t_end and f_start <= f2 < f_end:
                 delta_t = t2 - t1
-                delta_f = abs(f2 - f1)
-                if 0 <= delta_t <= delta_t_max and delta_f <= delta_f_max:
-                    hash_str = f"{f1}|{f2}|{delta_t}"
-                    h = hashlib.sha1(hash_str.encode("utf-8")).hexdigest()[0:20]
-                    hashes.append((h, int(t1)))
+                hash_str = f"{f1}|{f2}|{delta_t}"
+                h = hashlib.sha1(hash_str.encode("utf-8")).hexdigest()[0:20]
+                hashes.append((h, int(t1)))
     return hashes
 
 
+def save_spectrogram_image(Sxx, times, freqs, filename, folder):
+    plt.figure(figsize=(12, 6))
+    plt.pcolormesh(times, freqs, np.log(Sxx + 1e-10), shading='auto', cmap='magma')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.title('Spectrogram')
+    plt.colorbar(label='Log Amplitude')
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder, filename))
+    plt.close()
 
 def save_waveform_and_spectrogram(samples, sample_rate, Sxx, times, freqs, filename, folder):    
     if sample_rate <= 0 or len(samples) == 0 or Sxx.size == 0 or len(times) == 0 or len(freqs) == 0 or filename == "":
@@ -127,13 +149,3 @@ def clear_output_folders_and_db_files(folders):
             print(f"Deleted database file: {file}")
 
 
-def save_spectrogram_image(Sxx, times, freqs, filename, folder):
-    plt.figure(figsize=(12, 6))
-    plt.pcolormesh(times, freqs, np.log(Sxx + 1e-10), shading='auto', cmap='magma')
-    plt.ylabel('Frequency [Hz]')
-    plt.xlabel('Time [sec]')
-    plt.title('Spectrogram')
-    plt.colorbar(label='Log Amplitude')
-    plt.tight_layout()
-    plt.savefig(os.path.join(folder, filename))
-    plt.close()
