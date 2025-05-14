@@ -15,31 +15,19 @@ def read_wav(path):
     return data, sample_rate
 
 
-def compute_spectrogram(samples, sample_rate):
-    frequencies, times, Sxx = signal.spectrogram(samples, sample_rate)
+def compute_spectrogram(samples, sample_rate, samples_seg=1024, overlap=8):
+    frequencies, times, Sxx = signal.spectrogram(samples, fs=sample_rate, window="hann", nperseg=samples_seg, noverlap=int(samples_seg//overlap))
     return frequencies, times, Sxx
 
 
-def find_constellation_peaks(Sxx, min_distance=20, amp_min=-20, max_peaks_per_frame=10):
-    coordinates = peak_local_max(Sxx, min_distance=min_distance, threshold_abs=amp_min, exclude_border=False)
-    
-    if max_peaks_per_frame is not None:
-        frame_peaks = defaultdict(list)
+def find_constellation_peaks(Sxx, window_size=50):
+    local_maxima = maximum_filter(Sxx, size=window_size) == Sxx
 
-        for y, x in coordinates:
-            frame_peaks[x].append((x, y, Sxx[y, x]))
-        
-        capped_peaks = []
+    # Get the coordinates of the peaks
+    peak_indices = np.argwhere(local_maxima)
 
-        for peaks in frame_peaks.values():
-            peaks.sort(key=lambda tup: tup[2], reverse=True)
-            capped_peaks.extend(peaks[:max_peaks_per_frame])
-
-        return capped_peaks
-    
-    return [(x, y, Sxx[y, x]) for y, x in coordinates]
-
-
+    # Convert to list of tuples (freq_idx, time_idx)
+    return [tuple(idx) for idx in peak_indices]
 
 def hash_generation(peaks, fan_value=5, delta_t_max=200, delta_f_max=50):
     hashes = []
@@ -100,27 +88,27 @@ def save_waveform_and_spectrogram(samples, sample_rate, Sxx, times, freqs, filen
 def save_constellation_image(Sxx, peaks, filename, folder):
     plt.figure(figsize=(12, 6))
 
-    # Plot the spectrogram with better contrast and clarity
-    plt.imshow(10 * np.log10(Sxx + 1e-10),  # Convert to dB scale, avoid log(0)
+    # Plot the spectrogram in dB scale with better contrast
+    plt.imshow(10 * np.log10(Sxx + 1e-10),  # Avoid log(0)
                origin='lower',
                aspect='auto',
                cmap='inferno')
     plt.colorbar(label='Power (dB)')
 
-    # Overlay peaks if available
+
     peaks = np.array(peaks)
-    if peaks.size > 0:
-        freqs, times = peaks[:, 1], peaks[:, 0]
-        plt.scatter(times, freqs, color='cyan', s=10, marker='x', label='Peaks')
+    freq_indices = peaks[:, 0]
+    time_indices = peaks[:, 1]
+    plt.scatter(time_indices, freq_indices, color='cyan', s=10, marker='x', label='Peaks')
 
     plt.title("Constellation Map (Spectrogram with Peaks)")
     plt.xlabel("Time Bins")
     plt.ylabel("Frequency Bins")
-    if peaks.size > 0:
-        plt.legend()
+
+    plt.legend()
     plt.tight_layout()
 
-    # Ensure folder exists
+    # Ensure output folder exists
     os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, filename))
     plt.close()
