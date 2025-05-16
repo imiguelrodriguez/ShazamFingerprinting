@@ -1,15 +1,67 @@
 import argparse
 import sqlite3
-from utils import read_wav, compute_spectrogram, find_constellation_peaks, hash_generation
+from utils import read_wav, compute_spectrogram, find_constellation_peaks, hash_generation, save_spectrogram_image, \
+    save_constellation_image
 
 MIN_HASHES_FOR_MATCH = 5
 
+'''
+def match_hashes(sample_hashes, conn, plot=False, plot_scatter=None, plot_histogram=None):
+    cur = conn.cursor()
+
+    # Map of (song_id, offset) → count
+    offset_counts = {}
+    songtime_map = {}
+    sampletime_map = {}
+
+    for h, t_sample in sample_hashes:
+        cur.execute("SELECT hash, offset, song_id FROM fingerprints WHERE hash=?", (h,))
+        matches = cur.fetchall()
+
+        for _, t_db, song_id in matches:
+            delta = round(float(t_db) - t_sample, 2)
+            key = (song_id, delta)
+
+            offset_counts[key] = offset_counts.get(key, 0) + 1
+
+            # Save matching timestamps (used for scatter plot)
+            if key not in songtime_map:
+                songtime_map[key] = []
+                sampletime_map[key] = []
+
+            songtime_map[key].append(float(t_db))
+            sampletime_map[key].append(t_sample)
+
+    # Find best match (max count)
+    identified_track = None
+    identified_hash_maxcount = 0
+    identified_song_id = None
+    identified_key = None
+
+    for key, count in offset_counts.items():
+        if count > identified_hash_maxcount:
+            identified_hash_maxcount = count
+            identified_song_id = key[0]
+            identified_key = key
+
+    # Get song title
+    identified_song_title = None
+    if identified_song_id is not None:
+        cur.execute("SELECT name FROM songs WHERE id=?", (identified_song_id,))
+        result = cur.fetchone()
+        if result:
+            identified_song_title = result[0]
+
+
+    return identified_song_title
+'''
 def match_hashes(sample_hashes, conn):
     cur = conn.cursor()
     offset_counts = {}
     for h, t_sample in sample_hashes:
         cur.execute("SELECT hash, offset, song_id FROM fingerprints WHERE hash=?", (h,))
         matches = cur.fetchall()
+        print(matches)
         for _, t_db, song_id in matches:
             delta = t_db - t_sample
             key = (song_id, delta)
@@ -32,8 +84,10 @@ def identify_song(offset_counts, conn):
 
 def identify_sample(database_path, sample_path):
     data, sr = read_wav(sample_path)
-    _, _, Sxx = compute_spectrogram(data, sr)
-    peaks = find_constellation_peaks(Sxx)
+    f, t, Sxx = compute_spectrogram(data, sr)
+    save_spectrogram_image(Sxx, t, f, "test.png", ".")
+    peaks = find_constellation_peaks(Sxx, t, f)
+    save_constellation_image(Sxx, peaks, "test_const.png", ".", f, t)
     hashes = hash_generation(peaks)
     conn = sqlite3.connect(database_path)
     offset_counts = match_hashes(hashes, conn)

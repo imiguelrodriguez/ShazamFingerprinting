@@ -20,46 +20,54 @@ def compute_spectrogram(samples, sample_rate, samples_seg=1024, overlap=8):
     return frequencies, times, Sxx
 
 
-def find_constellation_peaks(Sxx, window_size=50):
+def find_constellation_peaks(Sxx, times, freqs, window_size=50):
     local_maxima = maximum_filter(Sxx, size=window_size) == Sxx
-
     # Get the coordinates of the peaks
     peak_indices = np.argwhere(local_maxima)
+    print(peak_indices)
 
-    # Convert to list of tuples (freq_idx, time_idx)
-    return [tuple(idx) for idx in peak_indices]
+    t_values = [times[peak_indices[i][1]] for i in range(len(peak_indices))]
+    f_values = [freqs[peak_indices[i][0]] for i in range(len(peak_indices))]
+    print(list(zip(t_values, f_values)))
+    return list(zip(t_values, f_values))
 
 
-def hash_generation(peaks, offset=5, delta_t_max=200, delta_f_max=50):
+
+import hashlib
+
+def hash_generation(peaks, offset=0.1, delta_t_max=10, delta_f_max=1000):
     hashes = []
     num_peaks = len(peaks)
+    print(peaks)
 
     for i in range(num_peaks):
-        # Anchor point
         t1, f1 = peaks[i]
 
-        # Define window
+        # Define the window
         t_start = t1 + offset
         t_end = t_start + delta_t_max
-        f_start = f1 - delta_f_max
-        f_end = f_start + delta_f_max
+        f_start = f1 - delta_f_max // 2
+        f_end = f1 + delta_f_max // 2
 
-        # Loop through remaining peaks to find points inside the rectangle
-        for peak in peaks:
-            t2, f2 = peak
+        for j in range(i + 1, num_peaks):
+            t2, f2 = peaks[j]
 
-            # Check if the point is inside the rectangle
-            if t_start <= t2 < t_end and f_start <= f2 < f_end:
-                delta_t = t2 - t1
-                hash_str = f"{f1}|{f2}|{delta_t}"
+            if t_start <= t2 <= t_end and f_start <= f2 <= f_end:
+                delta_t = int(t2 - t1)
+                f1_int = int(f1)
+                f2_int = int(f2)
+
+                hash_str = f"{f1_int}|{f2_int}|{delta_t}"
                 h = hashlib.sha1(hash_str.encode("utf-8")).hexdigest()[0:20]
+
                 hashes.append((h, int(t1)))
     return hashes
 
 
+
 def save_spectrogram_image(Sxx, times, freqs, filename, folder):
     plt.figure(figsize=(12, 6))
-    plt.pcolormesh(times, freqs, np.log(Sxx + 1e-10), shading='auto', cmap='magma')
+    plt.pcolormesh(times, freqs, 10 * np.log10(Sxx) + 1e-10, shading='auto', cmap='magma')
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     plt.title('Spectrogram')
@@ -107,30 +115,34 @@ def save_waveform_and_spectrogram(samples, sample_rate, Sxx, times, freqs, filen
         print(f"Error while plotting {filename}: {e}")
 
 
-def save_constellation_image(Sxx, peaks, filename, folder):
+def save_constellation_image(Sxx, peaks, filename, folder, freqs, times):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+
     plt.figure(figsize=(12, 6))
 
-    # Plot the spectrogram in dB scale with better contrast
-    plt.imshow(10 * np.log10(Sxx + 1e-10),  # Avoid log(0)
-               origin='lower',
-               aspect='auto',
-               cmap='inferno')
+    # Convert Sxx to dB scale
+    Sxx_db = 10 * np.log10(Sxx + 1e-10)
+
+    # Plot spectrogram with proper axes
+    extent = [times[0], times[-1], freqs[0], freqs[-1]]
+    plt.imshow(Sxx_db, origin='lower', aspect='auto', cmap='magma', extent=extent)
     plt.colorbar(label='Power (dB)')
 
+    # Convert peaks to two separate lists: times and freqs
+    peak_times = [pt[0] for pt in peaks]
+    peak_freqs = [pt[1] for pt in peaks]
 
-    peaks = np.array(peaks)
-    freq_indices = peaks[:, 0]
-    time_indices = peaks[:, 1]
-    plt.scatter(time_indices, freq_indices, color='cyan', s=10, marker='x', label='Peaks')
+    # Plot the peaks
+    plt.scatter(peak_times, peak_freqs, color='cyan', s=10, marker='x', label='Peaks')
 
     plt.title("Constellation Map (Spectrogram with Peaks)")
-    plt.xlabel("Time Bins")
-    plt.ylabel("Frequency Bins")
-
+    plt.xlabel("Time (s)")
+    plt.ylabel("Frequency (Hz)")
     plt.legend()
     plt.tight_layout()
 
-    # Ensure output folder exists
     os.makedirs(folder, exist_ok=True)
     plt.savefig(os.path.join(folder, filename))
     plt.close()

@@ -57,9 +57,9 @@ def build_database(input_folder: str, output: str):
             else:
                 save_spectrogram_image(Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
 
-            peaks = find_constellation_peaks(Sxx)
+            peaks = find_constellation_peaks(Sxx, times, freqs)
 
-            save_constellation_image(Sxx, peaks, f"{song_id_base}_peaks.png", PEAKS_FOLDER)
+            save_constellation_image(Sxx, peaks, f"{song_id_base}_peaks.png", PEAKS_FOLDER, freqs, times)
 
             try:
                 cur.execute("INSERT INTO songs (name) VALUES (?)", (filename,))
