@@ -12,7 +12,11 @@ os.makedirs(PEAKS_FOLDER, exist_ok=True)
 os.makedirs(MAXFILT_FOLDER, exist_ok=True)
 
 
-def build_database(input_folder: str, output: str):
+def build_database(input_folder: str, output: str, **kwargs):
+    window_size = kwargs.get("window_size", None)
+    delta_t_max = kwargs.get('delta_t_max', None)
+    delta_f_max = kwargs.get('delta_f_max', None)
+
     clear_output_folders_and_db_files([SPEC_FOLDER, PEAKS_FOLDER, MAXFILT_FOLDER])
 
     conn = sqlite3.connect(output)
@@ -57,7 +61,10 @@ def build_database(input_folder: str, output: str):
             else:
                 save_spectrogram_image(Sxx, times, freqs, f"{song_id_base}_spectrogram.png", SPEC_FOLDER)
 
-            peaks = find_constellation_peaks(Sxx, times, freqs)
+            if window_size:
+                peaks = find_constellation_peaks(Sxx, times, freqs, window_size=int(window_size))
+            else:
+                peaks = find_constellation_peaks(Sxx, times, freqs)
 
             save_constellation_image(Sxx, peaks, f"{song_id_base}_peaks.png", PEAKS_FOLDER, freqs, times)
 
@@ -69,7 +76,15 @@ def build_database(input_folder: str, output: str):
 
             song_id = cur.lastrowid
 
-            hashes = hash_generation(peaks)
+            if delta_t_max and delta_f_max:
+                hashes = hash_generation(peaks, delta_t_max=int(delta_t_max), delta_f_max=int(delta_f_max))
+            elif delta_t_max is not None:
+                hashes = hash_generation(peaks, delta_t_max=int(delta_t_max))
+            elif delta_f_max is not None:
+                hashes = hash_generation(peaks, delta_f_max=int(delta_f_max))
+            else:
+                hashes = hash_generation(peaks)
+
             for hash_val, offset in hashes:
 
                 try:
@@ -94,6 +109,20 @@ if __name__ == "__main__":
     )
     parser.add_argument('-i', '--input', required=True, help="Path to the folder containing songs.")
     parser.add_argument('-o', '--output', required=True, help="Path to the output SQLite database file.")
+    parser.add_argument('-w', '--windowsize', required=False, help="Size of the window of the maximum filter to obtain constellation peaks.")
+    parser.add_argument('-dt', '--deltatime', required=False, help="Time offset to build rectangle in the hashing step.")
+    parser.add_argument('-df', '--deltafreq', required=False, help="Frequency offset to build rectangle in the hashing step.")
+
+
     args = parser.parse_args()
 
-    build_database(args.input, args.output)
+    # Prepare kwargs depending on which optional args are provided
+    kwargs = {}
+    if args.windowsize is not None:
+        kwargs['window_size'] = args.windowsize
+    if args.deltatime is not None:
+        kwargs['delta_t_max'] = args.deltatime
+    if args.deltafreq is not None:
+        kwargs['delta_f_max'] = args.deltafreq
+
+    build_database(args.input, args.output, **kwargs)

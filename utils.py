@@ -24,11 +24,9 @@ def find_constellation_peaks(Sxx, times, freqs, window_size=50):
     local_maxima = maximum_filter(Sxx, size=window_size) == Sxx
     # Get the coordinates of the peaks
     peak_indices = np.argwhere(local_maxima)
-    print(peak_indices)
 
     t_values = [times[peak_indices[i][1]] for i in range(len(peak_indices))]
     f_values = [freqs[peak_indices[i][0]] for i in range(len(peak_indices))]
-    print(list(zip(t_values, f_values)))
     return list(zip(t_values, f_values))
 
 
@@ -38,7 +36,6 @@ import hashlib
 def hash_generation(peaks, offset=0.1, delta_t_max=10, delta_f_max=1000):
     hashes = []
     num_peaks = len(peaks)
-    print(peaks)
 
     for i in range(num_peaks):
         t1, f1 = peaks[i]
