@@ -7,15 +7,22 @@ MIN_HASHES_FOR_MATCH = 5
 
 
 def match_hashes(sample_hashes, conn):
+    if not sample_hashes:
+        return {}
     cur = conn.cursor()
+    # Prepare all hashes and their sample times
+    hash_to_time = dict(sample_hashes)
+    hashes = list(hash_to_time.keys())
+    # Use a single query with IN clause
+    placeholders = ','.join('?' for _ in hashes)
+    query = f"SELECT hash, offset, song_id FROM fingerprints WHERE hash IN ({placeholders})"
+    cur.execute(query, hashes)
     offset_counts = {}
-    for h, t_sample in sample_hashes:
-        cur.execute("SELECT hash, offset, song_id FROM fingerprints WHERE hash=?", (h,))
-        matches = cur.fetchall()
-        for _, t_db, song_id in matches:
-            delta = t_db - t_sample
-            key = (song_id, delta)
-            offset_counts[key] = offset_counts.get(key, 0) + 1
+    for h, t_db, song_id in cur.fetchall():
+        t_sample = hash_to_time[h]
+        delta = t_db - t_sample
+        key = (song_id, delta)
+        offset_counts[key] = offset_counts.get(key, 0) + 1
     return offset_counts
 
 

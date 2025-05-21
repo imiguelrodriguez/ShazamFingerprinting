@@ -7,23 +7,24 @@ import argparse
 import shutil
 import glob
 import sys
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict
 
 # ------------- CONFIGURABLE PARAMETERS -------------
-window_sizes = [50, 80]
-delta_t_max_values = [5, 10]
-delta_f_max_values = [500, 1000]
+window_sizes = [25]
+delta_t_max_values = [2]
+delta_f_max_values = [3000]
 
 PARAM_GRID = [
     {"window_size": w, "delta_t_max": dt, "delta_f_max": df}
     for w, dt, df in itertools.product(window_sizes, delta_t_max_values, delta_f_max_values)
 ]
 
-SONG_DIR = "songs"
-SAMPLES_DIR = "samples"
+SONG_DIR = "music"
+SAMPLES_DIR = "test"
 SAMPLE_SUBDIRS = ["clean_samples", "filtered_samples", "noisy_samples", "noisy_filtered_samples"]
 GT_METHOD = "filename"  # assumes ground truth in filename like: "10_Traveller_1.wav" → should match "10_Traveller"
 IDENTIFY_SCRIPT = "identify.py"
@@ -42,6 +43,7 @@ def evaluate_confusion_matrix(sample_files, db_path, config):
 
     for sample in sample_files:
         print(f"Identifying {sample}")
+        t_ini = time.time()
         cmd = [
             sys.executable, IDENTIFY_SCRIPT,
             "-d", db_path,
@@ -52,6 +54,7 @@ def evaluate_confusion_matrix(sample_files, db_path, config):
         ]
         gt = extract_ground_truth(os.path.basename(sample))
         stdout, stderr = run_command(cmd)
+        t = time.time() - t_ini
         if stderr:
             print(f"Error in sample {sample}: {stderr}")
         # Default prediction if no match is found
@@ -75,7 +78,7 @@ def evaluate_confusion_matrix(sample_files, db_path, config):
         for j, pred_label in enumerate(labels):
             matrix[i, j] = confusion[gt_label].get(pred_label, 0)
 
-    return labels, matrix
+    return labels, matrix, t
 
 def plot_confusion_matrix(labels, matrix, title="Confusion Matrix"):
     plt.figure(figsize=(10, 8))
@@ -131,10 +134,16 @@ def run_grid_search():
             "-dt", str(config["delta_t_max"]),
             "-df", str(config["delta_f_max"])
         ]
+        t_ini= time.time()
         stdout, stderr = run_command(cmd)
+        t_end = time.time() - t_ini
+
         print(stdout)
+        print(f"Database built in {t_end:.2f} seconds")
+
         print("\nIdentifying samples...")
             # Store accuracy per subdir
+        times = []
         subdir_accuracies = {}
         for subdir in SAMPLE_SUBDIRS:
             subdir_path = os.path.join(SAMPLES_DIR, subdir)
@@ -145,9 +154,9 @@ def run_grid_search():
                 subdir_accuracies[subdir] = 0.0
                 continue
 
-            labels, matrix = evaluate_confusion_matrix(sample_files, db_path, config)
+            labels, matrix, t = evaluate_confusion_matrix(sample_files, db_path, config)
             plot_confusion_matrix(labels, matrix, title=f"Confusion Matrix - {subdir}")
-
+            times.append(t)
             correct = sum(matrix[i, i] for i in range(len(labels)))
             total = matrix.sum()
             acc = correct / total if total > 0 else 0
@@ -155,6 +164,7 @@ def run_grid_search():
             print(f"  🧪 Accuracy in {subdir}: {acc:.2%}")
 
         results.append((config, subdir_accuracies))
+        print(f"  ⏱️ Average time per sample: {np.mean(times):.2f} seconds")
 
         # Clean up
         os.remove(db_path)
