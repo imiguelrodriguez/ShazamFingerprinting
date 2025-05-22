@@ -12,6 +12,7 @@ This project implements a basic audio fingerprinting and song identification sys
 ```
 ├── builddb.py                # Build the fingerprint database from audio files
 ├── identify.py               # Identify a song from a sample
+├── script.py                 # Run grid search and obtain accuracies, times and confusion matrices
 ├── utils.py                  # Shared utility functions for audio processing and fingerprinting
 ├── /spectrograms             # Saved spectrogram images for each song
 ├── /constellations
