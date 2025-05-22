@@ -65,7 +65,7 @@ def build_database(input_folder: str, output: str, **kwargs):
                 peaks = find_constellation_peaks(Sxx, times, freqs, window_size=int(window_size))
             else:
                 peaks = find_constellation_peaks(Sxx, times, freqs)
-
+            print(F"Number of peaks: {len(peaks)}")
             save_constellation_image(Sxx, peaks, f"{song_id_base}_peaks.png", PEAKS_FOLDER, freqs, times)
 
             try:
@@ -84,6 +84,8 @@ def build_database(input_folder: str, output: str, **kwargs):
                 hashes = hash_generation(peaks, delta_f_max=int(delta_f_max))
             else:
                 hashes = hash_generation(peaks)
+
+            print(F"Number of hashes: {len(hashes)}")
 
             for hash_val, offset in hashes:
 

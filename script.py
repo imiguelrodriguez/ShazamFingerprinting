@@ -3,8 +3,6 @@ import json
 import re
 import subprocess
 import os
-import argparse
-import shutil
 import glob
 import sys
 import time
@@ -14,17 +12,17 @@ import seaborn as sns
 from collections import defaultdict
 
 # ------------- CONFIGURABLE PARAMETERS -------------
-window_sizes = [25]
-delta_t_max_values = [2]
-delta_f_max_values = [3000]
+window_sizes = [25, 50]
+delta_t_max_values = [2, 5]
+delta_f_max_values = [1500, 3000]
 
 PARAM_GRID = [
     {"window_size": w, "delta_t_max": dt, "delta_f_max": df}
     for w, dt, df in itertools.product(window_sizes, delta_t_max_values, delta_f_max_values)
 ]
 
-SONG_DIR = "music"
-SAMPLES_DIR = "test"
+SONG_DIR = "songs"
+SAMPLES_DIR = "samples"
 SAMPLE_SUBDIRS = ["clean_samples", "filtered_samples", "noisy_samples", "noisy_filtered_samples"]
 GT_METHOD = "filename"  # assumes ground truth in filename like: "10_Traveller_1.wav" → should match "10_Traveller"
 IDENTIFY_SCRIPT = "identify.py"
@@ -162,20 +160,25 @@ def run_grid_search():
             acc = correct / total if total > 0 else 0
             subdir_accuracies[subdir] = acc
             print(f"  🧪 Accuracy in {subdir}: {acc:.2%}")
+        avg_time = np.mean(times)
+        results.append({
+            "config": config,
+            "accuracies": subdir_accuracies,
+            "avg_time": avg_time
+        })
+        print(f"  ⏱️ Average time per sample: {avg_time:.2f} seconds")
 
-        results.append((config, subdir_accuracies))
-        print(f"  ⏱️ Average time per sample: {np.mean(times):.2f} seconds")
 
-        # Clean up
-        os.remove(db_path)
 
     # Print summary
     print("\n📊 Final Grid Search Results:")
-    for config, subdir_accuracies in results:
-        print(f"\nConfig: {json.dumps(config)}")
-    for subdir, acc in subdir_accuracies.items():
-        print(f"  - {subdir}: {acc:.2%}")
-    # Save results to a JSON file
+    for entry in results:
+        print(f"\nConfig: {json.dumps(entry['config'])}")
+        for subdir, acc in entry["accuracies"].items():
+            print(f"  - {subdir}: {acc:.2%}")
+        print(f"  ⏱️ Avg time: {entry['avg_time']:.2f} s")
+
+    # Save to JSON
     with open("grid_search_results.json", "w") as f:
         json.dump(results, f, indent=2)
 

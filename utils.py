@@ -5,9 +5,7 @@ import librosa
 import matplotlib.pyplot as plt
 from scipy import signal
 from scipy.ndimage import maximum_filter
-from skimage.feature import peak_local_max
 from matplotlib.gridspec import GridSpec
-from collections import defaultdict
 
 
 def read_wav(path):
@@ -29,9 +27,6 @@ def find_constellation_peaks(Sxx, times, freqs, window_size=50):
     f_values = [freqs[peak_indices[i][0]] for i in range(len(peak_indices))]
     return list(zip(t_values, f_values))
 
-
-
-import hashlib
 
 def hash_generation(peaks, offset=0.1, delta_t_max=10, delta_f_max=1000):
     hashes = []
